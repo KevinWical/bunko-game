@@ -6,12 +6,12 @@ import {
 } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyD_pKXAfVOOrw0nF8e7yHLpJpJPWjSl5Pk",
-  authDomain: "bunco-f549e.firebaseapp.com",
-  projectId: "bunco-f549e",
-  storageBucket: "bunco-f549e.firebasestorage.app",
-  messagingSenderId: "855662635115",
-  appId: "1:855662635115:web:78732f331cb5702093e92e"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGEBUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 const app = initializeApp(firebaseConfig);
