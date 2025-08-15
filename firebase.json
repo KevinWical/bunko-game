@@ -1,0 +1,16 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "extensions": {
+    "firestore-ttl": {
+      "version": "1.0.0",
+      "configuration": {
+        "collection": "games",
+        "ttlField": "_ttl",
+        "ttlSeconds": 28800
+      }
+    }
+  }
+} 

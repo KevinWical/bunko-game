@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow read/write access to games collection
+    match /games/{gameId} {
+      allow read, write: if true;
+      
+      // Allow access to subcollections
+      match /{document=**} {
+        allow read, write: if true;
+      }
+    }
+  }
+} 
