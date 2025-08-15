@@ -9,6 +9,14 @@ export type TableData = {
   dice: number[];
   round: number;
   roundOver: boolean;
+  // Roll result information for synchronization
+  lastRollResult?: {
+    pointsScored?: number;
+    isBunco?: boolean;
+    isTripleOnes?: boolean;
+    timestamp?: number;
+  };
+  isRolling?: boolean;
 };
 
 export function useTableData(gameCode: string, tableId: number | null) {

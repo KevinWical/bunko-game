@@ -2,7 +2,9 @@ import { initializeApp } from 'firebase/app';
 import {
   initializeFirestore,
   persistentLocalCache,
-  persistentMultipleTabManager
+  persistentMultipleTabManager,
+  enableNetwork,
+  disableNetwork
 } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -22,3 +24,18 @@ export const db = initializeFirestore(app, {
     tabManager: persistentMultipleTabManager()
   })
 });
+
+// TTL configuration - 8 hours in seconds
+export const GAME_TTL_SECONDS = 8 * 60 * 60; // 8 hours
+
+// Helper function to create a document with TTL
+export const createDocumentWithTTL = async (collectionRef: any, docId: string, data: any) => {
+  const ttlTimestamp = new Date();
+  ttlTimestamp.setSeconds(ttlTimestamp.getSeconds() + GAME_TTL_SECONDS);
+  
+  return {
+    ...data,
+    _ttl: ttlTimestamp,
+    createdAt: new Date()
+  };
+};

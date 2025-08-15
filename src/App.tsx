@@ -1,16 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import GameRoom from './components/GameRoom';
 import TableView from './components/TableView';
+import GameOver from './components/GameOver';
+import { startPeriodicCleanup } from './utils/ttlCleanup';
 
 function App() {
   const [phase, setPhase] = useState<'lobby' | 'game' | 'finished'>('lobby');
   const [selfId, setSelfId] = useState('');
   const [gameCode, setGameCode] = useState('');
   const [gameResults, setGameResults] = useState<null | {
-    top: any;
-    bottom: any;
-    mostBuncos: any;
+    players: any[];
+    winner: { id: string; name: string; roundsWon: number; totalPoints: number };
+    targetRounds: number;
   }>(null);
+
+  // Start TTL cleanup when app loads
+  useEffect(() => {
+    const stopCleanup = startPeriodicCleanup();
+    
+    // Cleanup function when component unmounts
+    return () => {
+      stopCleanup();
+    };
+  }, []);
 
   const handleStartGame = (id: string, code: string) => {
     setSelfId(id);
@@ -18,9 +30,20 @@ function App() {
     setPhase('game');
   };
 
-  const handleGameOver = (results: { top: any; bottom: any; mostBuncos: any }) => {
+  const handleGameOver = (results: {
+    players: any[];
+    winner: { id: string; name: string; roundsWon: number; totalPoints: number };
+    targetRounds: number;
+  }) => {
     setGameResults(results);
     setPhase('finished');
+  };
+
+  const handlePlayAgain = () => {
+    setPhase('lobby');
+    setGameResults(null);
+    setSelfId('');
+    setGameCode('');
   };
 
   return (
@@ -28,27 +51,20 @@ function App() {
       {phase === 'lobby' && <GameRoom onStart={handleStartGame} />}
 
       {phase === 'game' && gameCode && selfId && (
-        <TableView gameCode={gameCode} selfId={selfId} />
+        <TableView 
+          gameCode={gameCode} 
+          selfId={selfId} 
+          onGameOver={handleGameOver}
+        />
       )}
 
       {phase === 'finished' && gameResults && (
-        <div className="text-center space-y-4">
-          <h1 className="text-3xl font-bold">🏆 Game Over</h1>
-          <p className="text-green-400">Most Wins: {gameResults.top.name} ({gameResults.top.roundsWon})</p>
-          <p className="text-red-400">Least Wins: {gameResults.bottom.name} ({gameResults.bottom.roundsWon})</p>
-          <p className="text-pink-400">Most Bunkos: {gameResults.mostBuncos.name} ({gameResults.mostBuncos.bunkoCount})</p>
-          <button
-            className="mt-4 px-4 py-2 bg-blue-700 hover:bg-blue-800 rounded"
-            onClick={() => {
-              setPhase('lobby');
-              setGameResults(null);
-              setSelfId('');
-              setGameCode('');
-            }}
-          >
-            Play Again
-          </button>
-        </div>
+        <GameOver
+          players={gameResults.players}
+          winner={gameResults.winner}
+          targetRounds={gameResults.targetRounds}
+          onPlayAgain={handlePlayAgain}
+        />
       )}
     </main>
   );

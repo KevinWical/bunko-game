@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useFirestoreGame } from '../hooks/useFirestoreGame';
 import type { FirestorePlayer } from '../hooks/useFirestoreGame';
-import { doc, setDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { doc, setDoc, getDocs, collection } from 'firebase/firestore';
+import { db, createDocumentWithTTL } from '../firebase';
 import { useRoundMonitor } from '../hooks/useRoundMonitor';
-import { useSeatingData } from '../hooks/useSeatingData';
 import { useTableData } from '../hooks/useTableData';
 
 interface GameRoomProps {
@@ -22,6 +21,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ onStart }) => {
   const [customCode, setCustomCode] = useState('');
   const [joined, setJoined] = useState(false);
   const [selfId, setSelfId] = useState<string | null>(null);
+  const [targetRounds, setTargetRounds] = useState(6); // Default to 6 rounds
 
   useEffect(() => {
     const fromUrl = new URLSearchParams(window.location.search).get('code');
@@ -37,12 +37,12 @@ const GameRoom: React.FC<GameRoomProps> = ({ onStart }) => {
 
   const { players, addPlayer, gameStarted } = useFirestoreGame(code, isReady);
 
-  const { seatingMap, selfSeating } = useSeatingData(code, selfId);
-  const currentTable = selfSeating?.table ?? null;
+  const selfPlayer = players.find((p) => p.id === selfId) || null;
+  const currentTable = selfPlayer?.table ?? null;
+
   const currentTableData = useTableData(code, currentTable);
 
   useRoundMonitor(code, currentTableData);
-
 
   useEffect(() => {
     if (gameStarted && joined && selfId) {
@@ -65,6 +65,10 @@ const GameRoom: React.FC<GameRoomProps> = ({ onStart }) => {
     if (!name.trim() || gameStarted) return;
 
     const id = `${name.trim().toLowerCase()}-${Math.floor(Math.random() * 1000)}`;
+    const playersRef = collection(db, 'games', code, 'players');
+    const existingPlayers = await getDocs(playersRef);
+    const isHost = existingPlayers.empty; // True for the first player
+
     const player: FirestorePlayer = {
       id,
       name: name.trim(),
@@ -74,7 +78,8 @@ const GameRoom: React.FC<GameRoomProps> = ({ onStart }) => {
       pointsThisRound: 0,
       totalPoints: 0,
       buncoCount: 0,
-      roundsWon: 0
+      roundsWon: 0,
+      isHost,
     };
     await addPlayer(player);
     setSelfId(id);
@@ -97,8 +102,8 @@ const GameRoom: React.FC<GameRoomProps> = ({ onStart }) => {
     const totalPlayers = players.length;
     const totalNeeded = Math.max(8, Math.ceil(totalPlayers / 4) * 4);
     const botsToAdd = totalNeeded - totalPlayers;
+    const allPlayers: FirestorePlayer[] = [...players]; // clone current humans
 
-    // Add bots
     for (let i = 0; i < botsToAdd; i++) {
       const id = `bot-${i}-${Math.floor(Math.random() * 1000)}`;
       const bot: FirestorePlayer = {
@@ -110,16 +115,22 @@ const GameRoom: React.FC<GameRoomProps> = ({ onStart }) => {
         pointsThisRound: 0,
         totalPoints: 0,
         buncoCount: 0,
-        roundsWon: 0
+        roundsWon: 0,
+        isHost: false
       };
-      await addPlayer(bot);
-      players.push(bot); // Add to local list so we can shuffle the full list
+
+      allPlayers.push(bot); // ✅ add bot to local list
+      const botDataWithTTL = await createDocumentWithTTL(null, id, {
+        ...bot,
+        joinedAt: new Date()
+      });
+      await setDoc(doc(db, 'games', code, 'players', id), botDataWithTTL);
     }
 
+    // Shuffle the combined list (humans + bots)
+    const shuffled = [...allPlayers].sort(() => Math.random() - 0.5);
     await new Promise((res) => setTimeout(res, 500));
 
-    // Shuffle all players
-    const shuffled = [...players].sort(() => Math.random() - 0.5);
     const playersPerTable = 4;
     const tables: Record<number, FirestorePlayer[]> = {};
 
@@ -129,17 +140,17 @@ const GameRoom: React.FC<GameRoomProps> = ({ onStart }) => {
       for (let seat = 0; seat < tablePlayers.length; seat++) {
         const player = tablePlayers[seat];
 
-        await setDoc(doc(db, 'games', code, 'seating', player.id), {
-          id: player.id,
-          name: player.name,
-          isBot: player.isBot,
+        const playerDataWithTTL = await createDocumentWithTTL(null, player.id, {
+          ...player,
           table,
           seat,
           pointsThisRound: 0,
           totalPoints: 0,
           buncoCount: 0,
-          roundsWon: 0
+          roundsWon: 0,
+          joinedAt: new Date()
         });
+        await setDoc(doc(db, 'games', code, 'players', player.id), playerDataWithTTL);
 
         if (!tables[table]) tables[table] = [];
         tables[table].push({ ...player, table, seat });
@@ -148,20 +159,23 @@ const GameRoom: React.FC<GameRoomProps> = ({ onStart }) => {
 
     for (const [tableIdStr, playersAtTable] of Object.entries(tables)) {
       const tableId = Number(tableIdStr);
-      await setDoc(doc(db, 'games', code, 'tables', `${tableId}`), {
+      const tableDataWithTTL = await createDocumentWithTTL(null, `${tableId}`, {
         id: tableId,
         playerIds: playersAtTable.map((p) => p.id),
         currentTurn: 0,
         dice: [1, 1, 1],
         round: 1,
         turnStart: Date.now(),
-        teamScores: [0, 0],
       });
+      await setDoc(doc(db, 'games', code, 'tables', `${tableId}`), tableDataWithTTL);
     }
 
-    await setDoc(doc(db, 'games', code), {
+    const gameDataWithTTL = await createDocumentWithTTL(null, code, {
       started: true,
-    }, { merge: true });
+      roundTransitionInProgress: false,
+      targetRounds: targetRounds, // Add target rounds to game state
+    });
+    await setDoc(doc(db, 'games', code), gameDataWithTTL, { merge: true });
   };
 
 
@@ -237,13 +251,38 @@ const GameRoom: React.FC<GameRoomProps> = ({ onStart }) => {
               <li key={p.id}>{p.name} {p.isBot ? '(Bot)' : ''}</li>
             ))}
           </ul>
+          {step === 'host' && (
+            <div className="mt-2 p-3 bg-gray-800 rounded-lg">
+              <p className="text-sm text-gray-300">Target Rounds to Win: <span className="text-yellow-400 font-bold">{targetRounds}</span></p>
+            </div>
+          )}
           {step === 'host' && joined && players.length > 0 && (
-            <button
-              onClick={handleStartGame}
-              className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-            >
-              Start Game with {players.length} Player{players.length !== 1 ? 's' : ''} + Fill with Bots
-            </button>
+            <div className="mt-4 space-y-4">
+              <div className="text-center">
+                <label htmlFor="targetRounds" className="block text-sm font-medium mb-2">
+                  Target Rounds to Win:
+                </label>
+                <input
+                  id="targetRounds"
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={targetRounds}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value);
+                    const newValue = Math.max(1, value || 1);
+                    setTargetRounds(newValue);
+                  }}
+                  className="w-20 p-2 rounded text-black text-center"
+                />
+              </div>
+              <button
+                onClick={handleStartGame}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+              >
+                Start Game with {players.length} Player{players.length !== 1 ? 's' : ''} + Fill with Bots
+              </button>
+            </div>
           )}
         </div>
       )}

@@ -1,3 +1,190 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Dice Animation Styles */
+.dice-container {
+  @apply flex flex-col items-center space-y-2 mb-4;
+}
+
+.dice-label {
+  @apply text-white font-semibold text-lg;
+}
+
+.dice-row {
+  @apply flex space-x-4;
+}
+
+.dice {
+  @apply relative w-16 h-16 bg-white rounded-lg shadow-lg border-2 border-gray-300;
+  transform-style: preserve-3d;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.dice.rolling {
+  animation: roll 0.6s ease-in-out infinite;
+  box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4);
+  border-color: #fbbf24;
+}
+
+@keyframes roll {
+  0% {
+    transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1);
+  }
+  25% {
+    transform: rotateX(90deg) rotateY(45deg) rotateZ(45deg) scale(1.05);
+  }
+  50% {
+    transform: rotateX(180deg) rotateY(90deg) rotateZ(90deg) scale(1.1);
+  }
+  75% {
+    transform: rotateX(270deg) rotateY(135deg) rotateZ(135deg) scale(1.05);
+  }
+  100% {
+    transform: rotateX(360deg) rotateY(180deg) rotateZ(180deg) scale(1);
+  }
+}
+
+.dice-face {
+  @apply absolute inset-0 grid grid-cols-3 grid-rows-3 p-2;
+  background: white;
+  border-radius: 0.5rem;
+}
+
+.dice-dot {
+  @apply w-2 h-2 bg-gray-800 rounded-full;
+  justify-self: center;
+  align-self: center;
+  transition: all 0.2s ease;
+}
+
+.rolling-text {
+  @apply text-yellow-400 font-semibold text-sm;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+/* Enhanced dice hover effects */
+.dice:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* Default yellow glow for all dice (only when not rolling) */
+.dice:not(.rolling)[data-value="1"],
+.dice:not(.rolling)[data-value="2"],
+.dice:not(.rolling)[data-value="3"],
+.dice:not(.rolling)[data-value="4"],
+.dice:not(.rolling)[data-value="5"],
+.dice:not(.rolling)[data-value="6"] {
+  @apply border-yellow-400;
+  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+}
+
+/* Green glow for target round number (only when not rolling) */
+.dice:not(.rolling).target-number[data-value="1"],
+.dice:not(.rolling).target-number[data-value="2"],
+.dice:not(.rolling).target-number[data-value="3"],
+.dice:not(.rolling).target-number[data-value="4"],
+.dice:not(.rolling).target-number[data-value="5"],
+.dice:not(.rolling).target-number[data-value="6"] {
+  @apply border-green-400;
+  box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+}
+
+/* Red glow for triple ones (only when not rolling) */
+.dice:not(.rolling).triple-ones {
+  @apply border-red-400;
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+}
+
+/* Bounce animation for successful rolls */
+@keyframes bounce {
+  0%, 20%, 53%, 80%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  40%, 43% {
+    transform: translate3d(0, -8px, 0);
+  }
+  70% {
+    transform: translate3d(0, -4px, 0);
+  }
+  90% {
+    transform: translate3d(0, -2px, 0);
+  }
+}
+
+.dice.bounce {
+  animation: bounce 0.6s ease-in-out;
+  box-shadow: 0 8px 25px rgba(34, 197, 94, 0.4);
+}
+
+/* Shake animation for failed rolls */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-2px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(2px);
+  }
+}
+
+.dice.shake {
+  animation: shake 0.5s ease-in-out;
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+}
+
+/* Glow effect for special rolls (BUNCO) */
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+  }
+  50% {
+    box-shadow: 0 8px 25px rgba(34, 197, 94, 0.6);
+  }
+}
+
+.dice.glow {
+  animation: glow 1s ease-in-out infinite;
+}
+
+/* Current Player Turn Highlight Animations */
+@keyframes turnGlow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(251, 191, 36, 0.6);
+  }
+}
+
+.current-turn-card {
+  animation: turnGlow 2s ease-in-out infinite;
+}
+
+@keyframes turnPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+.turn-badge {
+  animation: turnPulse 1.5s ease-in-out infinite;
+}
